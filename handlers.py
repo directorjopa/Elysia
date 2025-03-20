@@ -47,6 +47,7 @@ GENERATION_MESSAGES = [
     "🍃 Elysia вдыхает вдохновение для вашего запроса. Пожалуйста, подождите."
 ]
 
+
 # Функция для анимации загрузки
 async def show_loading_animation(message: types.Message, status_message: types.Message):
     for _ in range(3):  # Повторяем анимацию 3 раза
@@ -60,9 +61,11 @@ async def start_psychologist(callback: types.CallbackQuery, state: FSMContext):
     user_name = user_data.get("user_name")
     
     # Инициализируем историю сообщений
-    await state.update_data(messages=[{"role": "system", "content": PSYCHOLOGIST_PROMPT}])
-    await callback.message.answer("Начнем сеанс. Расскажи, что у тебя на душе.", reply_markup=end_session_keyboard)
-
+    initial_messages = [
+        {"role": "system", "content": PSYCHOLOGIST_PROMPT},
+        {"role": "user", "content": f"Привет! Меня зовут {user_name}. Я готов начать сеанс."}
+    ]
+    
     # Сохраняем историю в состоянии
     await state.update_data(messages=initial_messages)
     
@@ -73,7 +76,7 @@ async def start_psychologist(callback: types.CallbackQuery, state: FSMContext):
     await show_loading_animation(callback.message, status_message)
     
     # Отправляем запрос к OpenRouter
-    response = ask_openrouter(initial_messages)
+    response = ask_openrouter(initial_messages)  # Используем initial_messages
     
     try:
         if len(response) > 4096:
@@ -105,7 +108,7 @@ async def handle_message(message: types.Message, state: FSMContext):
         await show_loading_animation(message, status_message)
         
         # Отправляем запрос к OpenRouter
-        response = ask_openrouter(messages)
+        response = ask_openrouter(messages)  # Используем messages, а не initial_messages
         
         # Добавляем ответ нейросети в историю
         messages.append({"role": "assistant", "content": response})
@@ -120,7 +123,7 @@ async def handle_message(message: types.Message, state: FSMContext):
         except Exception as e:
             logging.error(f"Ошибка при отправке сообщения: {e}")
             await status_message.edit_text("Извините, произошла ошибка при обработке вашего запроса.")
-
+            
 # Обработчик кнопки "Рефлексия"
 async def handle_reflection(callback: types.CallbackQuery):
     await callback.message.edit_text(
