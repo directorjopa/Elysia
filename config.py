@@ -1,5 +1,5 @@
 API_TOKEN = '7220795167:AAGO1alLQe-6D0w8JyMNZvfe9v170IthyVE'  # Токен вашего бота
-OPENROUTER_API_KEY = "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"
+OPENROUTER_API_KEY = "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"
 SITE_URL = "https://your-site.com"
 SITE_NAME = "Your Site Name"
 MINI_APP_URL = "https://directorjopa.github.io"
