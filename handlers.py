@@ -55,65 +55,76 @@ async def show_loading_animation(message: types.Message, status_message: types.M
         await status_message.edit_text(text)  # Редактируем сообщение
         await asyncio.sleep(1)  # Пауза между сообщениями
 
-# Функция для анимации загрузки
-async def show_loading_animation(message: types.Message, status_message: types.Message):
-    for _ in range(3):  # Повторяем анимацию 3 раза
-        text = random.choice(GENERATION_MESSAGES)  # Выбираем случайное сообщение
-        await status_message.edit_text(text)  # Редактируем сообщение
-        await asyncio.sleep(1)  # Пауза между сообщениями
-
 # Обработчик кнопки "AI психолог"
 async def start_psychologist(callback: types.CallbackQuery, state: FSMContext):
-    # Отправляем описание функции
-    await callback.message.answer(
-        "🧠 **AI психолог**\n\n"
-        "Ты можешь общаться с AI психологом. Он поможет тебе разобраться в твоих мыслях и чувствах.\n\n"
-        "Напиши свой запрос, и я постараюсь помочь."
-    )
-    
-    # Устанавливаем состояние "ожидание запроса"
-    await state.set_state("waiting_for_query")
-    await callback.answer()
-
-# Обработчик запроса пользователя
-async def handle_user_query(message: types.Message, state: FSMContext):
-    # Получаем текущую историю сообщений
     user_data = await state.get_data()
-    messages = user_data.get("messages", [])
+    user_name = user_data.get("user_name")
     
-    # Если история пуста, добавляем системный промт
-    if not messages:
-        messages.append({"role": "system", "content": PSYCHOLOGIST_PROMPT})
-    
-    # Добавляем запрос пользователя в историю
-    messages.append({"role": "user", "content": message.text})
+    # Инициализируем историю сообщений
+    initial_messages = [
+        {"role": "system", "content": PSYCHOLOGIST_PROMPT},
+        {"role": "user", "content": f"Привет! Меня зовут {user_name}. Я готов начать сеанс."}
+    ]
     
     # Сохраняем историю в состоянии
-    await state.update_data(messages=messages)
+    await state.update_data(messages=initial_messages)
     
-    # Отправляем сообщение о состоянии
-    status_message = await message.answer("🔄 Генерация ответа...")
+    # Отправляем первое сообщение о состоянии
+    status_message = await callback.message.answer("🔄 Генерация ответа...")
     
     # Запускаем анимацию загрузки
-    await show_loading_animation(message, status_message)
+    await show_loading_animation(callback.message, status_message)
     
     # Отправляем запрос к OpenRouter
     try:
-        response = ask_openrouter(messages)
+        response = ask_openrouter(initial_messages)
         
         if len(response) > 4096:
             response = response[:4096]
         
         # Удаляем сообщение о состоянии и отправляем ответ как новое сообщение
         await status_message.delete()
-        await message.answer(response)
-        
-        # Добавляем ответ нейросети в историю
-        messages.append({"role": "assistant", "content": response})
-        await state.update_data(messages=messages)
+        await callback.message.answer(response)
+        await callback.answer()
+        logging.info("Сообщение от бота отправлено успешно.")
     except Exception as e:
         logging.error(f"Ошибка при отправке сообщения: {e}")
         await status_message.edit_text("Извините, произошла ошибка при обработке вашего запроса.")
+
+# Обработчик всех сообщений (для поддержания диалога)
+async def handle_message(message: types.Message, state: FSMContext):
+    if message.text.lower() == 'завершить сеанс':
+        await end_psychologist_session(message, state)
+    else:
+        user_data = await state.get_data()
+        messages = user_data.get("messages", [])
+        
+        # Добавляем сообщение пользователя в историю
+        messages.append({"role": "user", "content": message.text})
+        
+        # Отправляем первое сообщение о состоянии
+        status_message = await message.answer("🔄 Генерация ответа...")
+        
+        # Запускаем анимацию загрузки
+        await show_loading_animation(message, status_message)
+        
+        # Отправляем запрос к OpenRouter
+        try:
+            response = ask_openrouter(messages)
+            
+            if len(response) > 4096:
+                response = response[:4096]
+            
+            # Удаляем сообщение о состоянии и отправляем ответ как новое сообщение
+            await status_message.delete()
+            await message.answer(response)
+            
+            # Добавляем ответ нейросети в историю
+            messages.append({"role": "assistant", "content": response})
+            await state.update_data(messages=messages)
+        except Exception as e:
+            logging.error(f"Ошибка при отправке сообщения: {e}")
+            await status_message.edit_text("Извините, произошла ошибка при обработке вашего запроса.")
             
 # Обработчик кнопки "Рефлексия"
 async def handle_reflection(callback: types.CallbackQuery):
