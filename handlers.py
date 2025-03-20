@@ -51,9 +51,9 @@ GENERATION_MESSAGES = [
 # Функция для анимации загрузки
 async def show_loading_animation(message: types.Message, status_message: types.Message):
     for _ in range(3):  # Повторяем анимацию 3 раза
-        for text in GENERATION_MESSAGES:
-            await status_message.edit_text(text)
-            await asyncio.sleep(1)  # Пауза между сообщениями
+        text = random.choice(GENERATION_MESSAGES)  # Выбираем случайное сообщение
+        await status_message.edit_text(text)  # Редактируем сообщение
+        await asyncio.sleep(1)  # Пауза между сообщениями
 
 # Обработчик кнопки "AI психолог"
 async def start_psychologist(callback: types.CallbackQuery, state: FSMContext):
@@ -70,20 +70,21 @@ async def start_psychologist(callback: types.CallbackQuery, state: FSMContext):
     await state.update_data(messages=initial_messages)
     
     # Отправляем первое сообщение о состоянии
-    status_message = await callback.message.answer(random.choice(GENERATION_MESSAGES))
+    status_message = await callback.message.answer("🔄 Генерация ответа...")
     
     # Запускаем анимацию загрузки
     await show_loading_animation(callback.message, status_message)
     
     # Отправляем запрос к OpenRouter
-    response = ask_openrouter(initial_messages)  # Используем initial_messages
-    
     try:
+        response = ask_openrouter(initial_messages)
+        
         if len(response) > 4096:
             response = response[:4096]
         
-        # Редактируем сообщение, заменяя текст на ответ нейросети
-        await status_message.edit_text(response)
+        # Удаляем сообщение о состоянии и отправляем ответ как новое сообщение
+        await status_message.delete()
+        await callback.message.answer(response)
         await callback.answer()
         logging.info("Сообщение от бота отправлено успешно.")
     except Exception as e:
@@ -102,24 +103,25 @@ async def handle_message(message: types.Message, state: FSMContext):
         messages.append({"role": "user", "content": message.text})
         
         # Отправляем первое сообщение о состоянии
-        status_message = await message.answer(random.choice(GENERATION_MESSAGES))
+        status_message = await message.answer("🔄 Генерация ответа...")
         
         # Запускаем анимацию загрузки
         await show_loading_animation(message, status_message)
         
         # Отправляем запрос к OpenRouter
-        response = ask_openrouter(messages)  # Используем messages, а не initial_messages
-        
-        # Добавляем ответ нейросети в историю
-        messages.append({"role": "assistant", "content": response})
-        await state.update_data(messages=messages)
-        
         try:
+            response = ask_openrouter(messages)
+            
             if len(response) > 4096:
                 response = response[:4096]
             
-            # Редактируем сообщение, заменяя текст на ответ нейросети
-            await status_message.edit_text(response)
+            # Удаляем сообщение о состоянии и отправляем ответ как новое сообщение
+            await status_message.delete()
+            await message.answer(response)
+            
+            # Добавляем ответ нейросети в историю
+            messages.append({"role": "assistant", "content": response})
+            await state.update_data(messages=messages)
         except Exception as e:
             logging.error(f"Ошибка при отправке сообщения: {e}")
             await status_message.edit_text("Извините, произошла ошибка при обработке вашего запроса.")
