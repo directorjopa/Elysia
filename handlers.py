@@ -57,74 +57,63 @@ async def show_loading_animation(message: types.Message, status_message: types.M
 
 # Обработчик кнопки "AI психолог"
 async def start_psychologist(callback: types.CallbackQuery, state: FSMContext):
-    user_data = await state.get_data()
-    user_name = user_data.get("user_name")
+    # Отправляем описание функции и вопрос о проблеме
+    await callback.message.answer(
+        "🧠 **AI психолог**\n\n"
+        "Я здесь, чтобы помочь вам разобраться в ваших мыслях и чувствах. "
+        "Расскажите, что вас беспокоит?",
+        reply_markup=end_session_keyboard()
+    )
     
     # Инициализируем историю сообщений
     initial_messages = [
         {"role": "system", "content": PSYCHOLOGIST_PROMPT},
-        {"role": "user", "content": f"Привет! Меня зовут {user_name}. Я готов начать сеанс."}
     ]
     
     # Сохраняем историю в состоянии
     await state.update_data(messages=initial_messages)
+    await state.set_state("in_psychologist_session")  # Устанавливаем состояние диалога
+    await callback.answer()
+
+# Обработчик всех сообщений (для поддержания диалога)
+async def handle_psychologist_message(message: types.Message, state: FSMContext):
+    user_data = await state.get_data()
+    messages = user_data.get("messages", [])
     
-    # Отправляем первое сообщение о состоянии
-    status_message = await callback.message.answer("🔄 Генерация ответа...")
+    # Добавляем сообщение пользователя в историю
+    messages.append({"role": "user", "content": message.text})
+    
+    # Отправляем сообщение о состоянии
+    status_message = await message.answer("🔄 Генерация ответа...")
     
     # Запускаем анимацию загрузки
-    await show_loading_animation(callback.message, status_message)
+    await show_loading_animation(message, status_message)
     
     # Отправляем запрос к OpenRouter
     try:
-        response = ask_openrouter(initial_messages)
+        response = ask_openrouter(messages)
         
         if len(response) > 4096:
             response = response[:4096]
         
         # Удаляем сообщение о состоянии и отправляем ответ как новое сообщение
         await status_message.delete()
-        await callback.message.answer(response)
-        await callback.answer()
-        logging.info("Сообщение от бота отправлено успешно.")
+        await message.answer(response)
+        
+        # Добавляем ответ нейросети в историю
+        messages.append({"role": "assistant", "content": response})
+        await state.update_data(messages=messages)
     except Exception as e:
         logging.error(f"Ошибка при отправке сообщения: {e}")
         await status_message.edit_text("Извините, произошла ошибка при обработке вашего запроса.")
 
-# Обработчик всех сообщений (для поддержания диалога)
-async def handle_message(message: types.Message, state: FSMContext):
-    if message.text.lower() == 'завершить сеанс':
-        await end_psychologist_session(message, state)
-    else:
-        user_data = await state.get_data()
-        messages = user_data.get("messages", [])
-        
-        # Добавляем сообщение пользователя в историю
-        messages.append({"role": "user", "content": message.text})
-        
-        # Отправляем первое сообщение о состоянии
-        status_message = await message.answer("🔄 Генерация ответа...")
-        
-        # Запускаем анимацию загрузки
-        await show_loading_animation(message, status_message)
-        
-        # Отправляем запрос к OpenRouter
-        try:
-            response = ask_openrouter(messages)
-            
-            if len(response) > 4096:
-                response = response[:4096]
-            
-            # Удаляем сообщение о состоянии и отправляем ответ как новое сообщение
-            await status_message.delete()
-            await message.answer(response)
-            
-            # Добавляем ответ нейросети в историю
-            messages.append({"role": "assistant", "content": response})
-            await state.update_data(messages=messages)
-        except Exception as e:
-            logging.error(f"Ошибка при отправке сообщения: {e}")
-            await status_message.edit_text("Извините, произошла ошибка при обработке вашего запроса.")
+# Обработчик кнопки "Завершить сеанс"
+async def end_psychologist_session(message: types.Message, state: FSMContext):
+    await message.answer(
+        "Сеанс завершён. Если у вас появятся ещё вопросы, я всегда готов помочь!",
+        reply_markup=get_main_menu()
+    )
+    await state.clear()  # Очищаем состояние
             
 # Обработчик кнопки "Рефлексия"
 async def handle_reflection(callback: types.CallbackQuery):
