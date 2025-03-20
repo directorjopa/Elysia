@@ -212,7 +212,7 @@ async def end_psychologist_session(message: types.Message, state: FSMContext):
     # Возвращаем пользователя в главное меню
     await message.answer("Выбери действие:", reply_markup=get_main_menu())
     await state.set_state(None)
-```
+
 # Обработчик всех сообщений (для поддержания диалога)
 async def handle_message(message: types.Message, state: FSMContext):
     if message.text.lower() == 'завершить сеанс':
