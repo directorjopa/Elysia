@@ -1,5 +1,10 @@
-API_TOKEN = '7220795167:AAGO1alLQe-6D0w8JyMNZvfe9v170IthyVE'  # Токен вашего бота
-OPENROUTER_API_KEY = "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"
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+API_TOKEN = os.getenv("API_TOKEN")  # Токен вашего бота
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 SITE_URL = "https://your-site.com"
 SITE_NAME = "Your Site Name"
 MINI_APP_URL = "https://directorjopa.github.io"
