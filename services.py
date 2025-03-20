@@ -5,6 +5,7 @@ import logging
 client = OpenAI(
     base_url="https://openrouter.ai/api/v1",
     api_key=OPENROUTER_API_KEY,
+    timeout=60.0,
 )
 
 def ask_openrouter(messages):
