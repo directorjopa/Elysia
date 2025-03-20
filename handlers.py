@@ -56,13 +56,8 @@ async def show_loading_animation(message: types.Message, status_message: types.M
 
 # Обработчик кнопки "AI психолог"
 async def start_psychologist(callback: types.CallbackQuery, state: FSMContext):
-    await callback.message.edit_text(
-        "🧠 **AI психолог**\n\n"
-        "Ты можешь общаться с AI психологом. Он поможет тебе разобраться в твоих мыслях и чувствах.\n\n"
-        "Просто напиши сообщение, и он ответит. Чтобы завершить сеанс, напиши 'Завершить сеанс'.",
-        reply_markup=None
-    )
-    await callback.answer()
+    user_data = await state.get_data()
+    user_name = user_data.get("user_name")
     
     # Инициализируем историю сообщений
     await state.update_data(messages=[{"role": "system", "content": PSYCHOLOGIST_PROMPT}])
