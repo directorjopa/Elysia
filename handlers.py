@@ -147,12 +147,26 @@ async def handle_message(message: types.Message, state: FSMContext):
         user_data = await state.get_data()
         messages = user_data.get("messages", [])
         messages.append({"role": "user", "content": message.text})
-        response = ask_openrouter(messages)
-        messages.append({"role": "assistant", "content": response})
-        await state.update_data(messages=messages)
+        
+        # Отправляем сообщение о генерации ответа
+        generating_msg = await message.answer("⏳ Генерирую ответ...", reply_markup=end_session_keyboard)
+        
         try:
+            response = ask_openrouter(messages)
+            messages.append({"role": "assistant", "content": response})
+            await state.update_data(messages=messages)
+            
+            # Удаляем сообщение о генерации
+            await generating_msg.delete()
+            
+            # Отправляем ответ нейросети
             if len(response) > 4096:
-                response = response[:4096]
-            await message.answer(response, reply_markup=end_session_keyboard)
+                for x in range(0, len(response), 4096):
+                    await message.answer(response[x:x+4096], reply_markup=end_session_keyboard)
+            else:
+                await message.answer(response, reply_markup=end_session_keyboard)
         except Exception as e:
-            logging.error(f"Ошибка при отправке сообщения: {e}")
+            logging.error(f"Ошибка при генерации ответа: {e}")
+            # Удаляем сообщение о генерации, даже если произошла ошибка
+            await generating_msg.delete()
+            await message.answer("Произошла ошибка при генерации ответа. Попробуйте еще раз.", reply_markup=end_session_keyboard)
