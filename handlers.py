@@ -19,6 +19,7 @@ async def send_welcome(message: types.Message, state: FSMContext):
     else:
         await message.answer(f"С возвращением, {user_data[1]}! Выбери действие:", reply_markup=get_main_menu())
         await state.set_state(UserState.in_session)
+        await state.update_data(user_name=user_data[1])  # <-- Добавлена эта строка
 
 # Обработчик команды /menu
 async def send_menu(message: types.Message):
@@ -146,20 +147,28 @@ async def handle_message(message: types.Message, state: FSMContext):
     else:
         user_data = await state.get_data()
         messages = user_data.get("messages", [])
-        messages.append({"role": "user", "content": message.text})
+        user_name = user_data.get("user_name", "друг")  # Получаем имя или "друг" по умолчанию
         
-        # Отправляем сообщение о генерации ответа
-        generating_msg = await message.answer("⏳ Генерирую ответ...", reply_markup=end_session_keyboard)
+        # Добавляем имя в начало сообщения (если его там нет)
+        user_message = f"{user_name}, {message.text}" if not message.text.startswith(user_name) else message.text
+        messages.append({"role": "user", "content": user_message})
+        
+        # Уведомление о генерации
+        generating_msg = await message.answer(f"⏳ {user_name}, генерирую ответ...", reply_markup=end_session_keyboard)
         
         try:
             response = ask_openrouter(messages)
+            
+            # Добавляем имя в ответ нейросети (если его там нет)
+            if not response.startswith(user_name):
+                response = f"{user_name}, {response}"
+            
             messages.append({"role": "assistant", "content": response})
             await state.update_data(messages=messages)
             
-            # Удаляем сообщение о генерации
+            # Удаляем уведомление и отправляем ответ
             await generating_msg.delete()
             
-            # Отправляем ответ нейросети
             if len(response) > 4096:
                 for x in range(0, len(response), 4096):
                     await message.answer(response[x:x+4096], reply_markup=end_session_keyboard)
@@ -167,6 +176,5 @@ async def handle_message(message: types.Message, state: FSMContext):
                 await message.answer(response, reply_markup=end_session_keyboard)
         except Exception as e:
             logging.error(f"Ошибка при генерации ответа: {e}")
-            # Удаляем сообщение о генерации, даже если произошла ошибка
             await generating_msg.delete()
-            await message.answer("Произошла ошибка при генерации ответа. Попробуйте еще раз.", reply_markup=end_session_keyboard)
+            await message.answer(f"{user_name}, произошла ошибка. Попробуйте ещё раз.", reply_markup=end_session_keyboard)
