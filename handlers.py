@@ -154,7 +154,7 @@ async def handle_message(message: types.Message, state: FSMContext):
         messages.append({"role": "user", "content": user_message})
         
         # Уведомление о генерации
-        generating_msg = await message.answer(f"⏳ {user_name}, генерирую ответ...", reply_markup=end_session_keyboard)
+        generating_msg = await message.answer(f"🌿 Ищу ответ в глубинах вашего запроса, {user_name}. Один момент...", reply_markup=end_session_keyboard)
         
         try:
             response = ask_openrouter(messages)
